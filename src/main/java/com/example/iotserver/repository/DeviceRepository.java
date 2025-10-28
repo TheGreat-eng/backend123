@@ -51,4 +51,8 @@ public interface DeviceRepository extends JpaRepository<Device, Long> {
 
     // THÊM PHƯƠNG THỨC NÀY
     long countByStatus(DeviceStatus status);
+
+    @Query("SELECT d FROM Device d WHERE d.farm.id IN :farmIds AND (LOWER(d.name) LIKE :keyword OR LOWER(d.deviceId) LIKE :keyword)")
+    List<Device> searchDevicesInFarms(@Param("farmIds") List<Long> farmIds, @Param("keyword") String keyword);
+
 }

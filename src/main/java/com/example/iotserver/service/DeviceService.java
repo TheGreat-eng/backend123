@@ -57,10 +57,12 @@ public class DeviceService {
         device.setName(dto.getName());
         device.setDescription(dto.getDescription());
 
-        // ✅ SỬA: Dùng helper method để map type
-        device.setStatus(DeviceStatus.valueOf(dto.getStatus()));
+        // FIX 1: Thêm dòng này để gán type cho thiết bị
+        device.setType(parseDeviceType(dto.getType()));
 
+        // FIX 2: Xóa dòng code lỗi và chỉ giữ lại việc gán status mặc định
         device.setStatus(DeviceStatus.OFFLINE);
+
         device.setFarm(farm);
         device.setMetadata(dto.getMetadata());
 

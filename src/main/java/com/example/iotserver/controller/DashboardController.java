@@ -3,7 +3,7 @@ package com.example.iotserver.controller;
 import com.example.iotserver.service.DeviceService;
 import com.example.iotserver.service.SensorDataService;
 import com.example.iotserver.repository.DeviceRepository;
-import com.example.iotserver.entity.Device;
+import com.example.iotserver.enums.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -36,7 +36,7 @@ public class DashboardController {
                 // Device statistics
                 long totalDevices = deviceRepository.countByFarmId(farmId);
                 long onlineDevices = deviceRepository.countByFarmIdAndStatus(
-                                farmId, Device.DeviceStatus.ONLINE);
+                                farmId, DeviceStatus.ONLINE);
                 long offlineDevices = totalDevices - onlineDevices;
 
                 dashboard.put("totalDevices", totalDevices);

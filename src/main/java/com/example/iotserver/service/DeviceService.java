@@ -2,6 +2,8 @@ package com.example.iotserver.service;
 
 import com.example.iotserver.dto.DeviceDTO;
 import com.example.iotserver.dto.SensorDataDTO;
+import com.example.iotserver.enums.DeviceStatus;
+import com.example.iotserver.enums.DeviceType;
 import com.example.iotserver.entity.Device;
 import com.example.iotserver.entity.Farm;
 import com.example.iotserver.repository.DeviceRepository;
@@ -15,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.example.iotserver.service.WebSocketService; // Thêm import này
 
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -55,9 +58,9 @@ public class DeviceService {
         device.setDescription(dto.getDescription());
 
         // ✅ SỬA: Dùng helper method để map type
-        device.setType(parseDeviceType(dto.getType()));
+        device.setStatus(DeviceStatus.valueOf(dto.getStatus()));
 
-        device.setStatus(Device.DeviceStatus.OFFLINE);
+        device.setStatus(DeviceStatus.OFFLINE);
         device.setFarm(farm);
         device.setMetadata(dto.getMetadata());
 
@@ -80,7 +83,7 @@ public class DeviceService {
         if (dto.getMetadata() != null)
             device.setMetadata(dto.getMetadata());
         if (dto.getStatus() != null) {
-            device.setStatus(Device.DeviceStatus.valueOf(dto.getStatus()));
+            device.setStatus(DeviceStatus.valueOf(dto.getStatus()));
         }
 
         Device updated = deviceRepository.save(device);
@@ -158,7 +161,7 @@ public class DeviceService {
     }
 
     public List<DeviceDTO> getDevicesByFarmAndType(Long farmId, String type) {
-        Device.DeviceType deviceType = Device.DeviceType.valueOf(type);
+        DeviceType deviceType = DeviceType.valueOf(type);
         return deviceRepository.findByFarmIdAndType(farmId, deviceType)
                 .stream()
                 .map(this::mapToDTO)
@@ -207,8 +210,8 @@ public class DeviceService {
         List<Device> staleDevices = deviceRepository.findStaleDevices(threshold);
 
         for (Device device : staleDevices) {
-            if (device.getStatus() == Device.DeviceStatus.ONLINE) {
-                device.setStatus(Device.DeviceStatus.OFFLINE);
+            if (device.getStatus() == DeviceStatus.ONLINE) {
+                device.setStatus(DeviceStatus.OFFLINE);
                 deviceRepository.save(device);
                 log.warn("Device {} marked as offline due to inactivity", device.getDeviceId());
 
@@ -225,10 +228,10 @@ public class DeviceService {
         return "DEV-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
     }
 
-    private boolean isActuator(Device.DeviceType type) {
-        return type == Device.DeviceType.ACTUATOR_PUMP ||
-                type == Device.DeviceType.ACTUATOR_FAN ||
-                type == Device.DeviceType.ACTUATOR_LIGHT;
+    private boolean isActuator(DeviceType type) {
+        return type == DeviceType.ACTUATOR_PUMP ||
+                type == DeviceType.ACTUATOR_FAN ||
+                type == DeviceType.ACTUATOR_LIGHT;
     }
 
     // ✅ THÊM: Helper method to convert SensorDataDTO to Map
@@ -302,7 +305,7 @@ public class DeviceService {
      * đây.
      */
     private void sendOfflineNotificationIfNeeded(Device device) {
-        if (device.getStatus() != Device.DeviceStatus.OFFLINE)
+        if (device.getStatus() != DeviceStatus.OFFLINE)
             return;
 
         long minutesOffline = ChronoUnit.MINUTES.between(device.getLastSeen(), LocalDateTime.now());
@@ -337,16 +340,16 @@ public class DeviceService {
     }
 
     // ✅ THÊM: Helper method để map type linh hoạt
-    private Device.DeviceType parseDeviceType(String typeStr) {
+    private DeviceType parseDeviceType(String typeStr) {
         // Map các tên ngắn gọn sang tên đầy đủ
-        Map<String, Device.DeviceType> typeMapping = Map.of(
-                "DHT22", Device.DeviceType.SENSOR_DHT22,
-                "SOIL_MOISTURE", Device.DeviceType.SENSOR_SOIL_MOISTURE,
-                "LIGHT", Device.DeviceType.SENSOR_LIGHT,
-                "PH", Device.DeviceType.SENSOR_PH,
-                "PUMP", Device.DeviceType.ACTUATOR_PUMP,
-                "FAN", Device.DeviceType.ACTUATOR_FAN,
-                "LIGHT_ACTUATOR", Device.DeviceType.ACTUATOR_LIGHT);
+        Map<String, DeviceType> typeMapping = Map.of(
+                "DHT22", DeviceType.SENSOR_DHT22,
+                "SOIL_MOISTURE", DeviceType.SENSOR_SOIL_MOISTURE,
+                "LIGHT", DeviceType.SENSOR_LIGHT,
+                "PH", DeviceType.SENSOR_PH,
+                "PUMP", DeviceType.ACTUATOR_PUMP,
+                "FAN", DeviceType.ACTUATOR_FAN,
+                "LIGHT_ACTUATOR", DeviceType.ACTUATOR_LIGHT);
 
         // Thử tìm trong map trước
         if (typeMapping.containsKey(typeStr)) {
@@ -355,10 +358,11 @@ public class DeviceService {
 
         // Nếu không có trong map, parse trực tiếp từ enum
         try {
-            return Device.DeviceType.valueOf(typeStr);
+            return DeviceType.valueOf(typeStr);
         } catch (IllegalArgumentException e) {
             throw new RuntimeException("Invalid device type: " + typeStr +
-                    ". Valid types: " + String.join(", ", Device.DeviceType.values().toString()));
+                    ". Valid types: "
+                    + String.join(", ", Arrays.stream(DeviceType.values()).map(Enum::name).toArray(String[]::new)));
         }
     }
 }

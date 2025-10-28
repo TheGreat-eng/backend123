@@ -1,8 +1,8 @@
 package com.example.iotserver.repository;
 
 import com.example.iotserver.entity.Device;
-import com.example.iotserver.entity.Device.DeviceStatus;
-import com.example.iotserver.entity.Device.DeviceType;
+import com.example.iotserver.enums.DeviceStatus; // Thêm import
+import com.example.iotserver.enums.DeviceType; // Thêm import
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -50,7 +50,7 @@ public interface DeviceRepository extends JpaRepository<Device, Long> {
     void deleteByFarmId(Long farmId);
 
     // THÊM PHƯƠNG THỨC NÀY
-    long countByStatus(DeviceStatus status);
+    long countByStatus(DeviceStatus status); // Sửa nốt phương thức này
 
     @Query("SELECT d FROM Device d WHERE d.farm.id IN :farmIds AND (LOWER(d.name) LIKE :keyword OR LOWER(d.deviceId) LIKE :keyword)")
     List<Device> searchDevicesInFarms(@Param("farmIds") List<Long> farmIds, @Param("keyword") String keyword);

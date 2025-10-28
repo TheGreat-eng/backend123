@@ -34,6 +34,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import com.example.iotserver.enums.DeviceStatus; // Thêm import này
 
 @RestController
 @RequestMapping("/api/admin")
@@ -83,7 +84,7 @@ public class AdminController {
                 .totalFarms(farmRepository.count())
                 .totalDevices(deviceRepository.count())
                 // SỬA DÒNG NÀY
-                .onlineDevices(deviceRepository.countByStatus(Device.DeviceStatus.ONLINE))
+                .onlineDevices(deviceRepository.countByStatus(DeviceStatus.ONLINE))
                 .totalRules(ruleRepository.count())
                 .build();
         return ResponseEntity.ok(ApiResponse.success(stats));

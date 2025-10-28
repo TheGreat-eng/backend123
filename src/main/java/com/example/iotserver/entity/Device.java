@@ -1,5 +1,8 @@
 package com.example.iotserver.entity;
 
+// Thêm 2 import này vào đầu file
+import com.example.iotserver.enums.DeviceStatus;
+import com.example.iotserver.enums.DeviceType;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
@@ -38,7 +41,7 @@ public class Device {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private DeviceType type;
+    private DeviceType type; // Giữ nguyên, chỉ cần import đúng
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -78,20 +81,4 @@ public class Device {
         updatedAt = LocalDateTime.now();
     }
 
-    public enum DeviceType {
-        SENSOR_DHT22, // Temperature + Humidity
-        SENSOR_SOIL_MOISTURE, // Soil moisture
-        SENSOR_LIGHT, // Light intensity
-        SENSOR_PH, // pH sensor
-        ACTUATOR_PUMP, // Water pump
-        ACTUATOR_FAN, // Fan
-        ACTUATOR_LIGHT // Light/LED
-    }
-
-    public enum DeviceStatus {
-        ONLINE,
-        OFFLINE,
-        ERROR,
-        MAINTENANCE
-    }
 }

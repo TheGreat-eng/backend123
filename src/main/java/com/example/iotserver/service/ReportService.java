@@ -34,6 +34,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.csv.CSVFormat;
 
+import com.example.iotserver.enums.DeviceStatus;
+
 @Service
 @Slf4j
 @RequiredArgsConstructor
@@ -50,7 +52,7 @@ public class ReportService {
         // Thống kê thiết bị
         long totalDevices = deviceRepository.countByFarmId(farmId);
         long onlineDevices = deviceRepository.countByFarmIdAndStatus(farmId,
-                com.example.iotserver.entity.Device.DeviceStatus.ONLINE);
+                DeviceStatus.ONLINE);
         summary.put("totalDevices", totalDevices);
         summary.put("onlineDevices", onlineDevices);
 

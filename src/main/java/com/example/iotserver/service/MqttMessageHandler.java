@@ -16,6 +16,7 @@ import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageHeaders;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.example.iotserver.enums.DeviceStatus;
 
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
@@ -81,7 +82,7 @@ public class MqttMessageHandler {
 
                 // Cập nhật trạng thái và lastSeen cho device
                 device.setLastSeen(LocalDateTime.now());
-                device.setStatus(Device.DeviceStatus.ONLINE);
+                device.setStatus(DeviceStatus.ONLINE);
                 deviceRepository.save(device);
 
                 // Gửi thông báo qua WebSocket
@@ -113,7 +114,7 @@ public class MqttMessageHandler {
             Map<String, Object> status = objectMapper.readValue(payload, Map.class);
             deviceRepository.findByDeviceId(deviceId).ifPresent(device -> {
                 String statusStr = status.get("status").toString();
-                device.setStatus(Device.DeviceStatus.valueOf(statusStr.toUpperCase()));
+                device.setStatus(DeviceStatus.valueOf(statusStr.toUpperCase()));
                 device.setLastSeen(LocalDateTime.now());
                 deviceRepository.save(device);
                 log.info("Updated device status: {} - {}", deviceId, statusStr);

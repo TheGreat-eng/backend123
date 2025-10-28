@@ -1,11 +1,11 @@
 package com.example.iotserver.enums;
 
 public enum DeviceType {
-    TEMPERATURE_SENSOR,
-    HUMIDITY_SENSOR,
-    SOIL_MOISTURE_SENSOR,
-    LIGHT_SENSOR,
-    WATER_PUMP,
-    FAN,
-    LIGHT
+    SENSOR_DHT22,
+    SENSOR_SOIL_MOISTURE,
+    SENSOR_LIGHT,
+    SENSOR_PH,
+    ACTUATOR_PUMP,
+    ACTUATOR_FAN,
+    ACTUATOR_LIGHT
 }

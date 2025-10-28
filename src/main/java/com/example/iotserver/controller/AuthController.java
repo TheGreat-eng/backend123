@@ -54,7 +54,6 @@ public class AuthController {
         // Tạo user mới
         User user = new User();
         user.setEmail(request.getEmail());
-        user.setUsername(request.getEmail()); // ✅ FIX: Thêm username
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         user.setFullName(request.getFullName());
         user.setPhoneNumber(request.getPhone());

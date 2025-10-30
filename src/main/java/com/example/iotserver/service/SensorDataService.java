@@ -48,21 +48,16 @@ public class SensorDataService {
             // ^^^^-------------------------------^^^^
 
             // VVVV--- THÊM ĐẦY ĐỦ CÁC TRƯỜNG ---VVVV
-            if (data.getTemperature() != null) {
+            if (data.getTemperature() != null)
                 point.addField("temperature", data.getTemperature());
-            }
-            if (data.getHumidity() != null) {
+            if (data.getHumidity() != null)
                 point.addField("humidity", data.getHumidity());
-            }
-            if (data.getSoilMoisture() != null) {
+            if (data.getSoilMoisture() != null)
                 point.addField("soil_moisture", data.getSoilMoisture());
-            }
-            if (data.getLightIntensity() != null) {
+            if (data.getLightIntensity() != null)
                 point.addField("light_intensity", data.getLightIntensity());
-            }
-            if (data.getSoilPH() != null) {
+            if (data.getSoilPH() != null)
                 point.addField("soilPH", data.getSoilPH());
-            }
             // ^^^^-----------------------------^^^^
 
             // Nếu không có field nào được thêm, không ghi để tránh lỗi

@@ -323,20 +323,25 @@ public class RuleEngineService {
      * Lấy giá trị cảm biến theo tên trường
      */
     private Double getSensorValue(SensorDataDTO data, String field) {
-        switch (field.toLowerCase()) {
+        if (field == null || data == null)
+            return null;
+
+        String normalizedField = field.toLowerCase().replace("_", "");
+
+        // ✅ So sánh với các chuỗi đã chuẩn hóa
+        switch (normalizedField) {
             case "temperature":
                 return data.getTemperature();
             case "humidity":
                 return data.getHumidity();
-            case "soil_moisture":
             case "soilmoisture":
                 return data.getSoilMoisture();
-            case "light_intensity":
             case "lightintensity":
                 return data.getLightIntensity();
             case "soilph":
                 return data.getSoilPH();
             default:
+                log.warn("Trường cảm biến không được hỗ trợ hoặc không có giá trị: {}", field);
                 return null;
         }
     }

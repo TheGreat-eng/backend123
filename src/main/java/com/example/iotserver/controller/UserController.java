@@ -37,7 +37,7 @@ public class UserController {
 
     // (Có thể thêm các API khác để lấy/cập nhật thông tin user ở đây)
 
-    // VVVV--- API MỚI: LẤY THÔNG TIN CÁ NHÂN ---VVVV
+    // VVVV--- API MỚI: LẤY THÔNG TIIN CÁ NHÂN ---VVVV
     @GetMapping("/me")
     @Operation(summary = "Lấy thông tin của người dùng hiện tại")
     public ResponseEntity<ApiResponse<UserDTO>> getCurrentUserProfile() {

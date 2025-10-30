@@ -59,6 +59,10 @@ public class Device {
     @Column(name = "last_offline_notification_at") // <<<< THÊM TRƯỜNG MỚI NÀY
     private LocalDateTime lastOfflineNotificationAt;
 
+    // VVVV--- THÊM TRƯỜG MỚI NÀY ---VVVV
+    @Column(name = "current_state", length = 10) // VD: "ON", "OFF"
+    private String currentState;
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 

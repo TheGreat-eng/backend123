@@ -1,3 +1,5 @@
+# File: ctest.data/test_sensor.py
+
 import paho.mqtt.client as mqtt
 import json
 import time
@@ -5,9 +7,7 @@ from datetime import datetime
 
 BROKER = "localhost"
 PORT = 1883
-# DEVICE_ID = "DHT-001" # Phải khớp với deviceId bạn đã tạo ở Luồng 2
-# TOPIC = f"sensor/{DEVICE_ID}/data"
-DEVICE_ID = "SOIL-001" # Thay đổi
+DEVICE_ID = "SOIL-0001" # Thiết bị cần kích hoạt rule
 TOPIC = f"sensor/{DEVICE_ID}/data"
 
 client = mqtt.Client()
@@ -17,24 +17,14 @@ def connect_mqtt():
     print(f"Connected to MQTT Broker at {BROKER}:{PORT}")
 
 def publish_data():
+    # ✅ SỬA LẠI PAYLOAD CHO ĐÚNG CHUẨN camelCase
     payload = {
         "deviceId": DEVICE_ID,
         "sensorType": "SOIL_MOISTURE",
-        "lightIntensity": 310,  # ✅ THÊM lightIntensity
-        "soilMoisture": 25.0,
-        "temperature": 28.5,
-        "humidity": 67.0,
-        "soilPH": 5,  # ✅ THÊM soilPH BẤT THƯỜNG
+        "soilMoisture": 19.0, # Giá trị để kích hoạt rule (< 25)
+        # Thêm các giá trị khác nếu cần, nhưng không bắt buộc cho test này
         "timestamp": datetime.now().isoformat()
     }
-    # payload = {
-    #     "deviceId": DEVICE_ID,
-    #     "sensorType": "SOIL_MOISTURE",
-    #     "soilMoisture": 19.5, # Giá trị để kích hoạt rule
-    #     "temperature": 28.5,
-    #     "humidity": 67.0,
-    #     "timestamp": datetime.now().isoformat()
-    # }
     payload_json = json.dumps(payload)
     result = client.publish(TOPIC, payload_json)
     
@@ -47,6 +37,9 @@ if __name__ == '__main__':
     connect_mqtt()
     client.loop_start()
     time.sleep(1)
+    
+    print("\n!!! KÍCH HOẠT RULE ENGINE TRONG 30 GIÂY TỚI. HÃY QUAN SÁT LOG BACKEND !!!\n")
     publish_data()
+    
     time.sleep(1)
     client.loop_stop()

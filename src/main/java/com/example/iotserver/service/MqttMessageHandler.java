@@ -8,7 +8,6 @@ import com.example.iotserver.entity.Device;
 import com.example.iotserver.entity.Farm;
 import com.example.iotserver.repository.DeviceRepository;
 import com.example.iotserver.repository.FarmRepository;
-import com.example.iotserver.service.PlantHealthService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.integration.annotation.ServiceActivator;
@@ -20,6 +19,7 @@ import com.example.iotserver.enums.DeviceStatus;
 
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.HashMap;
 import java.util.Map;
 
 @Service
@@ -68,6 +68,10 @@ public class MqttMessageHandler {
             Map<String, Object> data = objectMapper.readValue(payload, Map.class);
             SensorDataDTO sensorData = SensorDataDTO.fromMqttPayload(deviceId, data);
 
+            // VVVV--- THÊM LOG DEBUG CHI TIẾT ---VVVV
+            log.info(">>>> [MQTT PARSE] Parsed DTO from payload for device {}: {}", deviceId, sensorData.toString());
+            // ^^^^-------------------------------^^^^
+
             // SỬA LỖI Ở ĐÂY: Tìm Device và Farm ID TRƯỚC KHI LƯU
             Device device = deviceRepository.findByDeviceIdWithFarmAndOwner(deviceId)
                     .orElse(null);
@@ -76,6 +80,10 @@ public class MqttMessageHandler {
                 Long farmId = device.getFarm().getId();
                 // Gán farmId vào DTO
                 sensorData.setFarmId(farmId);
+
+                // VVVV--- THÊM LOG DEBUG CHI TIẾT ---VVVV
+                log.info(">>>> [MQTT SAVE] Calling saveSensorData with DTO: {}", sensorData.toString());
+                // ^^^^-------------------------------^^^^
 
                 // BÂY GIỜ MỚI LƯU DỮ LIỆU VÀO INFLUXDB (với farmId chính xác)
                 sensorDataService.saveSensorData(sensorData);
@@ -108,16 +116,52 @@ public class MqttMessageHandler {
         }
     }
 
+    @Transactional // Thêm @Transactional để đảm bảo lưu DB thành công
     private void handleDeviceStatus(String topic, String payload) {
         try {
             String deviceId = topic.split("/")[1];
-            Map<String, Object> status = objectMapper.readValue(payload, Map.class);
+            Map<String, Object> statusMap = objectMapper.readValue(payload, Map.class);
+
             deviceRepository.findByDeviceId(deviceId).ifPresent(device -> {
-                String statusStr = status.get("status").toString();
-                device.setStatus(DeviceStatus.valueOf(statusStr.toUpperCase()));
+                // Lấy dữ liệu từ payload
+                String statusStr = (String) statusMap.get("status");
+                String stateStr = (String) statusMap.get("state"); // <-- Lấy state
+
+                // Cập nhật trạng thái kết nối (ONLINE/OFFLINE)
+                if (statusStr != null) {
+                    device.setStatus(DeviceStatus.valueOf(statusStr.toUpperCase()));
+                }
+
+                // Cập nhật trạng thái hoạt động (ON/OFF)
+                if (stateStr != null) {
+                    device.setCurrentState(stateStr.toUpperCase()); // <-- Lưu state
+                }
+
                 device.setLastSeen(LocalDateTime.now());
-                deviceRepository.save(device);
-                log.info("Updated device status: {} - {}", deviceId, statusStr);
+                Device updatedDevice = deviceRepository.save(device); // Lưu lại
+
+                log.info("Updated device status: {} - Status: {}, State: {}",
+                        deviceId, updatedDevice.getStatus(), updatedDevice.getCurrentState());
+
+                // VVVV--- GỬI THÔNG BÁO WEBSOCKET (BƯỚC BỊ THIẾU) ---VVVV
+                // webSocketService.sendDeviceStatus(
+                // updatedDevice.getFarm().getId(),
+                // updatedDevice.getDeviceId(),
+                // updatedDevice.getStatus().name()
+                // // có thể mở rộng WebSocketService để gửi cả currentState nếu cần
+                // );
+
+                // VVVV--- SỬA LẠI HOÀN TOÀN LOGIC GỬI WEBSOCKET ---VVVV
+                Map<String, Object> wsPayload = new HashMap<>();
+                wsPayload.put("deviceId", updatedDevice.getDeviceId());
+                wsPayload.put("status", updatedDevice.getStatus().name());
+                wsPayload.put("currentState", updatedDevice.getCurrentState());
+                wsPayload.put("lastSeen", updatedDevice.getLastSeen().toString());
+                wsPayload.put("timestamp", System.currentTimeMillis());
+
+                webSocketService.sendDeviceStatus(updatedDevice.getFarm().getId(), wsPayload);
+                // ^^^^-------------------------------------------------^^^^
+                // ^^^^-------------------------------------------------^^^^
             });
         } catch (Exception e) {
             log.error("Error processing device status: {}", e.getMessage(), e);

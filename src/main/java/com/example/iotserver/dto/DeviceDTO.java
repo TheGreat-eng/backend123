@@ -40,6 +40,9 @@ public class DeviceDTO implements Serializable {
     private Boolean isOnline;
     private Long uptimeSeconds;
 
+    // VVVV--- THÊM TRƯỜG MỚI NÀY ---VVVV
+    private String currentState;
+
     // ✅ GIỮ CẢ 2 - Cho linh hoạt
     private SensorDataDTO latestSensorData; // Latest sensor data object
     private Map<String, Object> latestData; // Latest data as map (for backward compatibility)

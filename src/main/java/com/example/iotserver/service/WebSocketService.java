@@ -46,6 +46,12 @@ public class WebSocketService {
         log.debug("Sent device status update to {}", destination);
     }
 
+    public void sendDeviceStatus(Long farmId, Map<String, Object> statusPayload) {
+        String destination = "/topic/farm/" + farmId + "/device-status";
+        messagingTemplate.convertAndSend(destination, statusPayload);
+        log.debug("Sent device status update to {}: {}", destination, statusPayload);
+    }
+
     /**
      * Broadcast system notification
      */

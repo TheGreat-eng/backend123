@@ -69,13 +69,13 @@ public class SensorDataDTO implements Serializable { // <-- THÊM "implements Se
             builder.humidity(parseDouble(payload.get("humidity")));
         }
         if (payload.containsKey("soilMoisture")) {
-            builder.soilMoisture(parseDouble(payload.get("soilMoisture")));
+            builder.soilMoisture(parseDouble(payload.getOrDefault("soilMoisture", payload.get("soil_moisture"))));
         }
         if (payload.containsKey("lightIntensity")) {
-            builder.lightIntensity(parseDouble(payload.get("lightIntensity")));
+            builder.lightIntensity(parseDouble(payload.getOrDefault("lightIntensity", payload.get("light_intensity"))));
         }
         if (payload.containsKey("soilPH")) {
-            builder.soilPH(parseDouble(payload.get("soilPH")));
+            builder.soilPH(parseDouble(payload.getOrDefault("soilPH", payload.get("soil_ph"))));
         }
         if (payload.containsKey("sensorType")) {
             builder.sensorType(payload.get("sensorType").toString());

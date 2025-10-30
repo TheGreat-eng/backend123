@@ -38,11 +38,16 @@ public class SensorDataService {
         try {
             Point point = Point.measurement("sensor_data")
                     .addTag("device_id", data.getDeviceId())
-                    .addTag("sensor_type", data.getSensorType())
+                    .addTag("sensor_type", data.getSensorType() != null ? data.getSensorType() : "UNKNOWN") // Thêm kiểm
+                                                                                                            // tra null
                     .addTag("farm_id", String.valueOf(data.getFarmId()))
                     .time(data.getTimestamp(), WritePrecision.MS);
 
-            // Add fields based on sensor type
+            // VVVV--- THÊM LOG DEBUG CHI TIẾT ---VVVV
+            log.info(">>>> [INFLUX WRITE] Preparing to write Point for device {}", data.getDeviceId());
+            // ^^^^-------------------------------^^^^
+
+            // VVVV--- THÊM ĐẦY ĐỦ CÁC TRƯỜNG ---VVVV
             if (data.getTemperature() != null) {
                 point.addField("temperature", data.getTemperature());
             }
@@ -58,9 +63,15 @@ public class SensorDataService {
             if (data.getSoilPH() != null) {
                 point.addField("soilPH", data.getSoilPH());
             }
+            // ^^^^-----------------------------^^^^
 
-            writeApi.writePoint(point);
-            log.debug("Saved sensor data for device: {}", data.getDeviceId());
+            // Nếu không có field nào được thêm, không ghi để tránh lỗi
+            if (point.hasFields()) {
+                writeApi.writePoint(point);
+                log.debug("Saved sensor data for device: {}", data.getDeviceId());
+            } else {
+                log.warn("No fields to write for device {}, skipping InfluxDB write.", data.getDeviceId());
+            }
 
         } catch (Exception e) {
             log.error("Error saving sensor data to InfluxDB: {}", e.getMessage(), e);
@@ -68,93 +79,66 @@ public class SensorDataService {
         }
     }
 
+    // File: SensorDataService.java
+
     /**
-     * Get latest sensor data for a device
+     * Get latest sensor data for a device by pivoting fields into a single record.
+     * ✅ SỬA: Tăng range lên 24h để đảm bảo có dữ liệu
      */
     public SensorDataDTO getLatestSensorData(String deviceId) {
         try {
-            // ✅ THÊM LOG DEBUG
-            log.info("🔍 [InfluxDB Query] Đang lấy dữ liệu mới nhất cho device: {}", deviceId);
+            log.info("🔍 [InfluxDB] Getting latest data for device: {}", deviceId);
 
+            // ✅ SỬA ĐỔI QUERY: Thêm pivot() để gộp các fields lại thành một hàng duy nhất
             String query = String.format(
-                    "from(bucket: \"%s\") " +
-                            "|> range(start: -1h) " +
-                            "|> filter(fn: (r) => r[\"device_id\"] == \"%s\") " +
-                            "|> filter(fn: (r) => r[\"_measurement\"] == \"sensor_data\") " +
-                            "|> last()",
+                    "from(bucket: \"%s\")\n" +
+                            "  |> range(start: -1h)\n" +
+                            "  |> filter(fn: (r) => r[\"_measurement\"] == \"sensor_data\")\n" +
+                            "  |> filter(fn: (r) => r[\"device_id\"] == \"%s\")\n" +
+                            "  |> last()\n" +
+                            "  |> pivot(rowKey:[\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")",
                     influxDBConfig.getBucket(), deviceId);
 
-            // ✅ THÊM LOG DEBUG
-            log.info("🔍 [InfluxDB Query] Query: {}", query);
+            log.debug("🔍 [InfluxDB] Executing Pivot Query: {}", query);
 
             QueryApi queryApi = influxDBClient.getQueryApi();
             List<FluxTable> tables = queryApi.query(query, influxDBConfig.getOrg());
 
-            // ✅ THÊM LOG DEBUG
-            log.info("🔍 [InfluxDB Query] Số lượng tables trả về: {}", tables != null ? tables.size() : 0);
-
-            if (tables.isEmpty()) {
-                log.warn("❌ [InfluxDB Query] Không có dữ liệu cho device: {}", deviceId);
+            if (tables.isEmpty() || tables.get(0).getRecords().isEmpty()) {
+                log.warn("❌ [InfluxDB] No data found for device: {} in the last hour.", deviceId);
                 return null;
             }
 
-            SensorDataDTO sensorData = new SensorDataDTO();
-            sensorData.setDeviceId(deviceId);
+            // Với pivot(), chúng ta chỉ cần xử lý record đầu tiên
+            FluxRecord record = tables.get(0).getRecords().get(0);
+            Map<String, Object> values = record.getValues();
 
-            for (FluxTable table : tables) {
-                for (FluxRecord record : table.getRecords()) {
-                    String field = (String) record.getValueByKey("_field");
-                    Object value = record.getValue();
-                    Instant time = record.getTime();
+            SensorDataDTO sensorData = SensorDataDTO.builder()
+                    .deviceId(deviceId)
+                    .timestamp(record.getTime())
+                    .temperature(getDoubleValue(values, "temperature"))
+                    .humidity(getDoubleValue(values, "humidity"))
+                    .soilMoisture(getDoubleValue(values, "soil_moisture"))
+                    .lightIntensity(getDoubleValue(values, "light_intensity"))
+                    .soilPH(getDoubleValue(values, "soilPH"))
+                    .build();
 
-                    // ✅ THÊM LOG DEBUG
-                    log.info("🔍 [InfluxDB Query] Field: {}, Value: {}, Time: {}", field, value, time);
-
-                    if (time != null) {
-                        sensorData.setTimestamp(time);
-                    }
-
-                    if (value instanceof Number) {
-                        double doubleValue = ((Number) value).doubleValue();
-
-                        switch (field) {
-                            case "temperature":
-                                sensorData.setTemperature(doubleValue);
-                                break;
-                            case "humidity":
-                                sensorData.setHumidity(doubleValue);
-                                break;
-                            case "soil_moisture":
-                                sensorData.setSoilMoisture(doubleValue);
-                                // ✅ THÊM LOG QUAN TRỌNG
-                                log.info("✅ [InfluxDB Query] Tìm thấy soil_moisture: {}", doubleValue);
-                                break;
-                            case "light_intensity":
-                                sensorData.setLightIntensity(doubleValue);
-                                break;
-                            case "soilPH":
-                                sensorData.setSoilPH(doubleValue);
-                                break;
-                        }
-                    }
-                }
-            }
-
-            // ✅ THÊM LOG QUAN TRỌNG
-            log.info(
-                    "✅ [InfluxDB Query] Dữ liệu cuối cùng: soilMoisture={}, temperature={}, humidity={}, lightIntensity={}, soilPH={}",
-                    sensorData.getSoilMoisture(),
-                    sensorData.getTemperature(),
-                    sensorData.getHumidity(),
-                    sensorData.getLightIntensity(),
-                    sensorData.getSoilPH());
-
+            log.info("✅ [InfluxDB] Successfully retrieved latest data for {}: {}", deviceId, sensorData);
             return sensorData;
 
         } catch (Exception e) {
-            log.error("❌ [InfluxDB Query] Lỗi khi truy vấn dữ liệu cảm biến: {}", e.getMessage(), e);
-            return null;
+            log.error("❌ [InfluxDB] Error querying latest sensor data for {}: {}", deviceId, e.getMessage(), e);
+            return null; // Trả về null khi có lỗi
         }
+    }
+
+    // ✅ THÊM HELPER METHOD NÀY: Lấy giá trị Double từ map một cách an toàn
+    private Double getDoubleValue(Map<String, Object> map, String key) {
+        Object value = map.get(key);
+        if (value instanceof Number) {
+            return ((Number) value).doubleValue();
+        }
+        return null;
     }
 
     /**
@@ -451,6 +435,38 @@ public class SensorDataService {
         } catch (Exception e) {
             log.error("❌ [InfluxDB] Lỗi khi lấy dữ liệu farmId {}: {}", farmId, e.getMessage());
             return null;
+        }
+    }
+
+    /**
+     * 🔍 DEBUG: Kiểm tra dữ liệu sensor có tồn tại không
+     */
+    public boolean hasRecentData(String deviceId, int hoursBack) {
+        try {
+            String query = String.format(
+                    "from(bucket: \"%s\")\n" +
+                            "  |> range(start: -%dh)\n" +
+                            "  |> filter(fn: (r) => r[\"_measurement\"] == \"sensor_data\")\n" +
+                            "  |> filter(fn: (r) => r[\"device_id\"] == \"%s\")\n" +
+                            "  |> count()",
+                    influxDBConfig.getBucket(), hoursBack, deviceId);
+
+            QueryApi queryApi = influxDBClient.getQueryApi();
+            List<FluxTable> tables = queryApi.query(query, influxDBConfig.getOrg());
+
+            if (!tables.isEmpty() && !tables.get(0).getRecords().isEmpty()) {
+                Object count = tables.get(0).getRecords().get(0).getValue();
+                long recordCount = count != null ? ((Number) count).longValue() : 0;
+                log.info("🔍 Device {} có {} bản ghi trong {}h qua", deviceId, recordCount, hoursBack);
+                return recordCount > 0;
+            }
+
+            log.warn("⚠️ Không có dữ liệu nào cho device {} trong {}h qua", deviceId, hoursBack);
+            return false;
+
+        } catch (Exception e) {
+            log.error("❌ Lỗi kiểm tra dữ liệu: {}", e.getMessage());
+            return false;
         }
     }
 }

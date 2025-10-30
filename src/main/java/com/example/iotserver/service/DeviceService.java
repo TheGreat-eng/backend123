@@ -276,6 +276,7 @@ public class DeviceService {
                 .description(device.getDescription())
                 .type(device.getType().name())
                 .status(device.getStatus().name())
+                .currentState(device.getCurrentState()) // <-- THÊM DÒNG NÀY
                 .farmId(device.getFarm().getId())
                 .farmName(device.getFarm().getName())
                 .farmLocation(device.getFarm().getLocation())

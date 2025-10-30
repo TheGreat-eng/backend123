@@ -10,7 +10,7 @@ from datetime import datetime
 
 BROKER = "localhost"
 PORT = 1883
-DEVICE_ID = "DEV-PUMP-001"
+DEVICE_ID = "PUMP-0001"
 
 pump_state = "OFF"
 

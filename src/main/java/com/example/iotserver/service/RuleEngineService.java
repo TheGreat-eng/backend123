@@ -199,6 +199,12 @@ public class RuleEngineService {
                 return false;
             }
 
+            // ✅ THÊM: Kiểm tra dữ liệu có tồn tại không
+            if (!sensorDataService.hasRecentData(deviceId, 24)) {
+                log.warn("❌ [Rule Check] Không có dữ liệu 24h gần nhất cho device: {}", deviceId);
+                return false;
+            }
+
             SensorDataDTO sensorData = sensorDataService.getLatestSensorData(deviceId);
 
             log.info("🔍 [Rule Check] Sensor data từ InfluxDB: {}", sensorData != null ? "CÓ DỮ LIỆU" : "NULL");

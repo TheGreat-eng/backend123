@@ -1,283 +1,147 @@
-#!/usr/bin/env python3
-"""
-IoT Sensor Simulator for Smart Farm
-Simulates multiple sensor types sending data via MQTT
-"""
-
+import paho.mqtt.client as mqtt
 import json
 import time
 import random
-import math
 from datetime import datetime
-from typing import Dict, Any
-import paho.mqtt.client as mqtt
 
-class SensorSimulator:
-    def __init__(self, broker_host="localhost", broker_port=1883):
-        self.client = mqtt.Client(client_id=f"simulator_{random.randint(1000, 9999)}")
-        self.broker_host = broker_host
-        self.broker_port = broker_port
-        self.connected = False
-        
-        # Simulation state
-        self.base_temperature = 28.0
-        self.base_humidity = 65.0
-        self.soil_moisture = 50.0
-        self.light_intensity = 10000.0
-        self.ph_level = 6.5
-        
-        # Time tracking
-        self.start_time = time.time()
-        
-        # Setup MQTT callbacks
-        self.client.on_connect = self.on_connect
-        self.client.on_disconnect = self.on_disconnect
-        
-    def on_connect(self, client, userdata, flags, rc):
-        if rc == 0:
-            print("✅ Connected to MQTT Broker!")
-            self.connected = True
-        else:
-            print(f"❌ Failed to connect, return code {rc}")
-            
-    def on_disconnect(self, client, userdata, rc):
-        print("⚠️  Disconnected from MQTT Broker")
-        self.connected = False
-        
-    def connect(self):
-        """Connect to MQTT broker"""
-        try:
-            self.client.connect(self.broker_host, self.broker_port, 60)
-            self.client.loop_start()
-            
-            # Wait for connection
-            timeout = 10
-            start = time.time()
-            while not self.connected and (time.time() - start) < timeout:
-                time.sleep(0.1)
-                
-            return self.connected
-        except Exception as e:
-            print(f"❌ Connection error: {e}")
-            return False
-            
-    def disconnect(self):
-        """Disconnect from MQTT broker"""
-        self.client.loop_stop()
-        self.client.disconnect()
-        
-    def get_time_factor(self) -> float:
-        """Get time-based factor for day/night simulation"""
-        elapsed = time.time() - self.start_time
-        # Simulate 24 hours in 24 minutes (1 minute = 1 hour)
-        hour_of_day = (elapsed / 60) % 24
-        return hour_of_day
-        
-    def simulate_dht22(self, device_id: str) -> Dict[str, Any]:
-        """Simulate DHT22 sensor (Temperature + Humidity)"""
-        hour = self.get_time_factor()
-        
-        # Temperature varies with time of day
-        temp_variation = 5 * math.sin((hour - 6) * math.pi / 12)
-        temperature = self.base_temperature + temp_variation + random.uniform(-1, 1)
-        
-        # Humidity inversely correlated with temperature
-        humidity = self.base_humidity - (temp_variation * 2) + random.uniform(-3, 3)
-        humidity = max(30, min(95, humidity))
-        
-        return {
-            "deviceId": device_id,
-            "sensorType": "DHT22",
-            "temperature": round(temperature, 2),
-            "humidity": round(humidity, 2),
-            "timestamp": datetime.now().isoformat()
-        }
-        
-    def simulate_soil_moisture(self, device_id: str) -> Dict[str, Any]:
-        """Simulate soil moisture sensor"""
-        # Soil moisture gradually decreases
-        self.soil_moisture -= random.uniform(0.05, 0.15)
-        
-        # Simulate irrigation events (random spikes)
-        if random.random() < 0.02:  # 2% chance per reading
-            self.soil_moisture += random.uniform(15, 25)
-            print(f"💧 Irrigation event! Moisture increased to {self.soil_moisture:.1f}%")
-            
-        # Keep within realistic bounds
-        self.soil_moisture = max(20, min(70, self.soil_moisture))
-        
-        return {
-            "deviceId": device_id,
-            "sensorType": "SOIL_MOISTURE",
-            "soilMoisture": round(self.soil_moisture, 2),
-            "timestamp": datetime.now().isoformat()
-        }
-        
-    def simulate_light_sensor(self, device_id: str) -> Dict[str, Any]:
-        """Simulate light intensity sensor"""
-        hour = self.get_time_factor()
-        
-        # Light intensity based on time of day
-        if 6 <= hour <= 18:  # Daytime
-            # Peak at noon (hour 12)
-            light_factor = math.sin((hour - 6) * math.pi / 12)
-            self.light_intensity = 50000 * light_factor + random.uniform(-2000, 2000)
-        else:  # Nighttime
-            self.light_intensity = random.uniform(0, 100)
-            
-        self.light_intensity = max(0, self.light_intensity)
-        
-        return {
-            "deviceId": device_id,
-            "sensorType": "LIGHT",
-            "lightIntensity": round(self.light_intensity, 2),
-            "timestamp": datetime.now().isoformat()
-        }
-        
-    def simulate_ph_sensor(self, device_id: str) -> Dict[str, Any]:
-        """Simulate pH sensor"""
-        # pH changes slowly
-        self.ph_level += random.uniform(-0.02, 0.02)
-        self.ph_level = max(5.5, min(7.5, self.ph_level))
-        
-        return {
-            "deviceId": device_id,
-            "sensorType": "PH",
-            "ph": round(self.ph_level, 2),
-            "timestamp": datetime.now().isoformat()
-        }
-        
-    def publish_sensor_data(self, device_id: str, data: Dict[str, Any]):
-        """Publish sensor data to MQTT"""
-        topic = f"sensor/{device_id}/data"
-        payload = json.dumps(data)
-        
-        result = self.client.publish(topic, payload, qos=1)
-        
-        if result.rc == mqtt.MQTT_ERR_SUCCESS:
-            sensor_type = data.get("sensorType", "UNKNOWN")
-            print(f"📤 Published {sensor_type} data from {device_id}")
-        else:
-            print(f"❌ Failed to publish data for {device_id}")
-            
-    def publish_device_status(self, device_id: str, status: str):
-        """Publish device status"""
-        topic = f"device/{device_id}/status"
-        payload = json.dumps({
-            "deviceId": device_id,
-            "status": status,
-            "timestamp": datetime.now().isoformat()
-        })
-        
-        self.client.publish(topic, payload, qos=1)
-        print(f"📡 Published status for {device_id}: {status}")
-        
-    def run_simulation(self, devices: list, interval: int = 10):
-        """Run continuous simulation"""
-        print("\n" + "="*60)
-        print("🌾 Smart Farm IoT Simulator Started")
-        print("="*60)
-        print(f"Devices: {len(devices)}")
-        print(f"Interval: {interval} seconds")
-        print(f"Broker: {self.broker_host}:{self.broker_port}")
-        print("="*60 + "\n")
-        
-        if not self.connect():
-            print("❌ Failed to connect to MQTT broker. Exiting...")
-            return
-            
-        # Send initial status for all devices
-        for device in devices:
-            self.publish_device_status(device["id"], "ONLINE")
-            
-        try:
-            iteration = 0
-            while True:
-                iteration += 1
-                print(f"\n--- Iteration {iteration} ---")
-                hour = self.get_time_factor()
-                print(f"🕐 Simulated time: {int(hour):02d}:00 (Hour {int(hour)} of 24)")
-                
-                for device in devices:
-                    device_id = device["id"]
-                    device_type = device["type"]
-                    
-                    # Generate sensor data based on type
-                    if device_type == "DHT22":
-                        data = self.simulate_dht22(device_id)
-                    elif device_type == "SOIL_MOISTURE":
-                        data = self.simulate_soil_moisture(device_id)
-                    elif device_type == "LIGHT":
-                        data = self.simulate_light_sensor(device_id)
-                    elif device_type == "PH":
-                        data = self.simulate_ph_sensor(device_id)
-                    else:
-                        continue
-                        
-                    # Publish to MQTT
-                    self.publish_sensor_data(device_id, data)
-                    
-                print(f"\n💤 Waiting {interval} seconds...\n")
-                time.sleep(interval)
-                
-        except KeyboardInterrupt:
-            print("\n\n🛑 Stopping simulator...")
-            
-            # Send offline status for all devices
-            for device in devices:
-                self.publish_device_status(device["id"], "OFFLINE")
-                
-            self.disconnect()
-            print("✅ Simulator stopped gracefully")
+# MQTT Configuration
+MQTT_BROKER = "localhost"
+MQTT_PORT = 1883
+MQTT_USERNAME = "admin"
+MQTT_PASSWORD = "admin123"
 
+# ✅ THÊM PUMP-0001 VÀO DANH SÁCH DEVICES
+DEVICES = {
+    "TEMP-0001": {
+        "type": "temperature",
+        "topic": "device/TEMP-0001/data",
+        "farm_id": 1
+    },
+    "HUM-0001": {
+        "type": "humidity", 
+        "topic": "device/HUM-0001/data",
+        "farm_id": 1
+    },
+    "SOIL-0001": {
+        "type": "soil_moisture",
+        "topic": "device/SOIL-0001/data",
+        "farm_id": 1
+    },
+    "LIGHT-0001": {
+        "type": "light_intensity",
+        "topic": "device/LIGHT-0001/data",
+        "farm_id": 1
+    },
+    # ✅ THÊM MỚI: Máy bơm với soil_moisture thấp để test rule
+    "PUMP-0001": {
+        "type": "soil_moisture",  # ⬅️ Giả lập độ ẩm đất thấp
+        "topic": "device/PUMP-0001/data",
+        "farm_id": 1
+    }
+}
 
-def create_test_scenario():
-    """Create a test scenario with extreme conditions"""
-    scenarios = [
-        {
-            "name": "Normal Operation",
-            "duration": 60,  # seconds
-            "description": "Normal farming conditions"
-        },
-        {
-            "name": "Heat Wave",
-            "duration": 30,
-            "description": "Temperature rises to 38°C",
-            "temperature_boost": 10
-        },
-        {
-            "name": "Drought",
-            "duration": 45,
-            "description": "Soil moisture drops rapidly",
-            "moisture_drain": 0.5
-        }
-    ]
+def on_connect(client, userdata, flags, rc):
+    if rc == 0:
+        print("✅ Connected to MQTT Broker!")
+    else:
+        print(f"❌ Failed to connect, return code {rc}")
+
+def generate_sensor_data(device_id, device_info):
+    """Tạo dữ liệu sensor ngẫu nhiên"""
+    sensor_type = device_info["type"]
     
-    return scenarios
-
+    # ✅ THÊM: Giả lập PUMP-0001 có độ ẩm đất thấp (< 30%) để kích hoạt rule
+    if device_id == "PUMP-0001":
+        # Độ ẩm đất thấp để kích hoạt rule "Tưới nước tự động"
+        soil_moisture = round(random.uniform(15.0, 28.0), 2)  # ⬅️ < 30%
+        return {
+            "device_id": device_id,
+            "farm_id": device_info["farm_id"],
+            "sensor_type": sensor_type,
+            "soil_moisture": soil_moisture,
+            "timestamp": int(datetime.now().timestamp() * 1000)
+        }
+    
+    # ✅ GIỮ NGUYÊN: Logic cũ cho các sensor khác
+    if sensor_type == "temperature":
+        value = round(random.uniform(20.0, 35.0), 2)
+        return {
+            "device_id": device_id,
+            "farm_id": device_info["farm_id"],
+            "sensor_type": sensor_type,
+            "temperature": value,
+            "timestamp": int(datetime.now().timestamp() * 1000)
+        }
+    
+    elif sensor_type == "humidity":
+        value = round(random.uniform(40.0, 80.0), 2)
+        return {
+            "device_id": device_id,
+            "farm_id": device_info["farm_id"],
+            "sensor_type": sensor_type,
+            "humidity": value,
+            "timestamp": int(datetime.now().timestamp() * 1000)
+        }
+    
+    elif sensor_type == "soil_moisture":
+        value = round(random.uniform(25.0, 65.0), 2)
+        return {
+            "device_id": device_id,
+            "farm_id": device_info["farm_id"],
+            "sensor_type": sensor_type,
+            "soil_moisture": value,
+            "timestamp": int(datetime.now().timestamp() * 1000)
+        }
+    
+    elif sensor_type == "light_intensity":
+        value = round(random.uniform(1000.0, 5000.0), 2)
+        return {
+            "device_id": device_id,
+            "farm_id": device_info["farm_id"],
+            "sensor_type": sensor_type,
+            "light_intensity": value,
+            "timestamp": int(datetime.now().timestamp() * 1000)
+        }
 
 def main():
-    """Main function"""
+    client = mqtt.Client()
+    client.username_pw_set(MQTT_USERNAME, MQTT_PASSWORD)
+    client.on_connect = on_connect
     
-    # Configuration
-    BROKER_HOST = "localhost"  # Change to your MQTT broker
-    BROKER_PORT = 1883
-    INTERVAL = 10  # seconds between readings
+    print(f"🔄 Connecting to MQTT Broker at {MQTT_BROKER}:{MQTT_PORT}...")
+    client.connect(MQTT_BROKER, MQTT_PORT, 60)
+    client.loop_start()
     
-    # Define virtual devices
-    devices = [
-        {"id": "DHT22-001", "type": "DHT22", "location": "Garden A"},
-        {"id": "DHT22-002", "type": "DHT22", "location": "Garden B"},
-        {"id": "SOIL-001", "type": "SOIL_MOISTURE", "location": "Garden A"},
-        {"id": "SOIL-002", "type": "SOIL_MOISTURE", "location": "Garden B"},
-        {"id": "LIGHT-001", "type": "LIGHT", "location": "Garden A"},
-        {"id": "PH-001", "type": "PH", "location": "Garden A"},
-    ]
+    print("\n📡 Starting sensor data simulation...")
+    print(f"📊 Simulating {len(DEVICES)} devices: {', '.join(DEVICES.keys())}")
+    print("⏱️  Sending data every 10 seconds\n")
     
-    # Create and run simulator
-    simulator = SensorSimulator(BROKER_HOST, BROKER_PORT)
-    simulator.run_simulation(devices, INTERVAL)
-
+    try:
+        while True:
+            for device_id, device_info in DEVICES.items():
+                data = generate_sensor_data(device_id, device_info)
+                topic = device_info["topic"]
+                
+                # Publish data
+                result = client.publish(topic, json.dumps(data))
+                
+                # Log
+                if result.rc == 0:
+                    print(f"✅ [{datetime.now().strftime('%H:%M:%S')}] {device_id}: {data}")
+                    
+                    # ✅ THÊM: Highlight khi PUMP-0001 gửi dữ liệu độ ẩm thấp
+                    if device_id == "PUMP-0001" and data.get("soil_moisture", 100) < 30:
+                        print(f"   ⚠️  Độ ẩm thấp! Rule 'Tưới nước tự động' sẽ được kích hoạt!")
+                else:
+                    print(f"❌ Failed to send data for {device_id}")
+            
+            time.sleep(10)  # Gửi mỗi 10 giây
+            
+    except KeyboardInterrupt:
+        print("\n⏹️  Stopping simulation...")
+        client.loop_stop()
+        client.disconnect()
+        print("✅ Disconnected from MQTT Broker")
 
 if __name__ == "__main__":
     main()

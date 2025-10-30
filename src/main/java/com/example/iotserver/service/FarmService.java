@@ -4,6 +4,7 @@ import com.example.iotserver.dto.FarmDTO;
 import com.example.iotserver.entity.Farm;
 import com.example.iotserver.entity.Rule;
 import com.example.iotserver.entity.User;
+import com.example.iotserver.enums.DeviceStatus;
 import com.example.iotserver.repository.DeviceRepository;
 import com.example.iotserver.repository.FarmRepository;
 import com.example.iotserver.repository.RuleRepository;
@@ -128,6 +129,12 @@ public class FarmService {
     }
 
     private FarmDTO mapToDTO(Farm farm) {
+
+        // VVVV--- THÊM 2 DÒNG TRUY VẤN NÀY ---VVVV
+        long totalDevices = deviceRepository.countByFarmId(farm.getId());
+        long onlineDevices = deviceRepository.countByFarmIdAndStatus(farm.getId(), DeviceStatus.ONLINE);
+        // ^^^^----------------------------------^^^^
+
         FarmDTO dto = new FarmDTO();
         dto.setId(farm.getId());
         dto.setName(farm.getName());
@@ -138,6 +145,12 @@ public class FarmService {
         dto.setOwnerName(farm.getOwner().getFullName());
         dto.setCreatedAt(farm.getCreatedAt());
         dto.setUpdatedAt(farm.getUpdatedAt());
+
+        // VVVV--- GÁN CÁC GIÁ TRỊ VỪA ĐẾM ĐƯỢC VÀO DTO ---VVVV
+        dto.setTotalDevices(totalDevices);
+        dto.setOnlineDevices(onlineDevices);
+        // ^^^^---------------------------------------------^^^^
+
         return dto;
     }
 }

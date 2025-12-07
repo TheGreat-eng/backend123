@@ -35,7 +35,7 @@ public class UserController {
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationService authenticationService; // <-- Thêm service này
 
-    // (Có thể thêm các API khác để lấy/cập nhật thông tin user ở đây)
+    // (Có thể thêm các API khác để lấy/cập nhật thông tin user ở đây) #
 
     // VVVV--- API MỚI: LẤY THÔNG TIIN CÁ NHÂN ---VVVV
     @GetMapping("/me")
